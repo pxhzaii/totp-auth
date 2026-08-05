@@ -1,0 +1,23 @@
+{
+  "name": "totp-auth",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "pnpm build && wrangler pages deploy ./dist --branch main"
+  },
+  "dependencies": {
+    "vue": "^3.4.21"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "typescript": "^5.4.2",
+    "vite": "^5.1.6",
+    "vue-tsc": "^2.0.6",
+    "@cloudflare/workers-types": "^4.20240320.1",
+    "wrangler": "^3.36.0"
+  }
+}
