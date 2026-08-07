@@ -1,32 +1,15 @@
 // 云端备份模块
-// 支持 WebDAV 和 Cloudflare KV 两种备份方式
+// 仅支持 Cloudflare KV 备份
 
 import type { TOTPAccount } from './totp'
 import { loadAccounts, saveAccounts } from './db'
 import { serializeBackup } from './totp'
 
 export interface BackupConfig {
-  webdavUrl: string
-  webdavUsername: string
-  webdavPassword: string
-  webdavProxy: string   // 代理地址，为空则走自带代理，'none' 表示直连
   cloudflarePassword: string
 }
 
 const BACKUP_CFG_KEY = 'totp_backup_config'
-const BACKUP_PATH = 'totp-backup.json'
-
-// --- 代理预设 ---
-export interface ProxyOption {
-  label: string
-  value: string
-}
-
-export const PROXY_PRESETS: ProxyOption[] = [
-  { label: '自带代理（同域 /api/webdav-proxy）', value: '' },
-  { label: 'Vercel 外部代理', value: '__custom__' },
-  { label: '直连（不使用代理）', value: 'none' },
-]
 
 // --- 备份配置 ---
 export function loadBackupConfig(): BackupConfig {
@@ -34,13 +17,7 @@ export function loadBackupConfig(): BackupConfig {
     const raw = localStorage.getItem(BACKUP_CFG_KEY)
     if (raw) return JSON.parse(raw)
   } catch {}
-  return {
-    webdavUrl: 'https://dav.jianguoyun.com/dav/',
-    webdavUsername: '',
-    webdavPassword: '',
-    webdavProxy: '',
-    cloudflarePassword: '',
-  }
+  return { cloudflarePassword: '' }
 }
 
 export function saveBackupConfig(cfg: BackupConfig): void {
@@ -64,118 +41,6 @@ function validateBackupData(data: any): TOTPAccount[] {
     }
   }
   return data.accounts as TOTPAccount[]
-}
-
-// --- WebDAV 代理请求封装 ---
-// 三种模式：
-// 1. webdavProxy === 'none' → 直连
-// 2. webdavProxy === '' → 走自带代理（/api/webdav-proxy）
-// 3. webdavProxy 为 URL → 走外部 Vercel 代理
-
-// 自带代理和 Vercel 代理的响应格式不同：
-// - 自带代理：透传原始 HTTP 响应（status + body 直接可用）
-// - Vercel 代理：JSON 包装 { status, headers, bodyB64? }
-
-async function webdavFetch(
-  cfg: BackupConfig,
-  method: 'GET' | 'PUT',
-  body?: string
-): Promise<{ status: number; data: any }> {
-  let baseUrl = cfg.webdavUrl.replace(/\/+$/, '')
-  const targetUrl = baseUrl + '/' + BACKUP_PATH
-  const auth = btoa(`${cfg.webdavUsername}:${cfg.webdavPassword}`)
-
-  // 直连模式
-  if (cfg.webdavProxy === 'none') {
-    const headers: Record<string, string> = { Authorization: `Basic ${auth}` }
-    const fetchOpts: RequestInit = { method, headers }
-    if (body) {
-      headers['Content-Type'] = 'application/json'
-      fetchOpts.body = body
-    }
-    const res = await fetch(targetUrl, fetchOpts)
-    if (!res.ok) {
-      throw new Error(`WebDAV ${method === 'PUT' ? '上传' : '下载'}失败: ${res.status} ${res.statusText}`)
-    }
-    if (method === 'GET') {
-      return { status: res.status, data: await res.json() }
-    }
-    return { status: res.status, data: null }
-  }
-
-  // 自带代理模式（同域 /api/webdav-proxy，透传响应）
-  if (!cfg.webdavProxy) {
-    const proxyUrl = `/api/webdav-proxy?method=${encodeURIComponent(method)}&url=${encodeURIComponent(targetUrl)}`
-    const headers: Record<string, string> = { Authorization: `Basic ${auth}` }
-    const fetchOpts: RequestInit = { method: 'POST', headers }
-    if (body) {
-      headers['Content-Type'] = 'application/json'
-      fetchOpts.body = body
-    }
-    const res = await fetch(proxyUrl, fetchOpts)
-    if (!res.ok) {
-      // 自带代理 403 = 域名不在白名单, 429 = 速率限制, 502 = 代理错误
-      try {
-        const err = await res.json()
-        throw new Error(err.error || `代理请求失败: ${res.status}`)
-      } catch {
-        throw new Error(`代理请求失败: ${res.status}`)
-      }
-    }
-    if (method === 'GET') {
-      return { status: res.status, data: await res.json() }
-    }
-    return { status: res.status, data: null }
-  }
-
-  // 外部 Vercel 代理模式
-  const proxyBase = cfg.webdavProxy.replace(/\/+$/, '')
-  const proxyUrl = `${proxyBase}/api/webdav?url=${encodeURIComponent(targetUrl)}&method=${method}`
-  const headers: Record<string, string> = { Authorization: `Basic ${auth}` }
-  const fetchOpts: RequestInit = { method: 'POST', headers }
-  if (body) {
-    headers['Content-Type'] = 'application/json'
-    fetchOpts.body = body
-  }
-  const res = await fetch(proxyUrl, fetchOpts)
-  const json = await res.json()
-
-  if (json.error) {
-    throw new Error(`代理错误: ${json.error}`)
-  }
-
-  const status = json.status as number
-  if (status >= 400) {
-    throw new Error(`WebDAV ${method} 失败 (via 代理): HTTP ${status}`)
-  }
-
-  if (method === 'GET' && json.bodyB64) {
-    const decoded = atob(json.bodyB64)
-    const data = JSON.parse(decoded)
-    return { status, data }
-  }
-  return { status, data: null }
-}
-
-// --- WebDAV 备份 ---
-export async function backupToWebDAV(cfg: BackupConfig): Promise<string> {
-  if (!cfg.webdavUrl) throw new Error('WebDAV 地址未配置')
-
-  const accounts = loadAccounts()
-  if (accounts.length === 0) throw new Error('没有可备份的账户')
-
-  const data = serializeBackup(accounts)
-  await webdavFetch(cfg, 'PUT', data)
-  return `WebDAV 备份成功 (${accounts.length} 个账户)`
-}
-
-export async function restoreFromWebDAV(cfg: BackupConfig): Promise<{ accounts: TOTPAccount[]; message: string }> {
-  if (!cfg.webdavUrl) throw new Error('WebDAV 地址未配置')
-
-  const result = await webdavFetch(cfg, 'GET')
-  const accounts = validateBackupData(result.data)
-  saveAccounts(accounts)
-  return { accounts, message: `从 WebDAV 恢复成功 (${accounts.length} 个账户)` }
 }
 
 // --- Cloudflare KV 备份 ---
