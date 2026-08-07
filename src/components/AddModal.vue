@@ -105,16 +105,17 @@
       <!-- 扫描二维码 -->
       <div v-if="tab === 'scan'" class="tab-content">
         <div class="scan-area">
-          <div class="scan-icon">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5">
-              <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/>
+          <!-- 摄像头扫描按钮 -->
+          <button class="scan-camera-btn" @click="showQrScanner = true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
             </svg>
-          </div>
-          <p class="scan-hint">
-            在另一个设备上打开<br/>
-            <strong>otpauth://totp/...</strong> 格式的二维码<br/>
-            然后将 URI 粘贴到下方
-          </p>
+            <span>打开摄像头扫描</span>
+          </button>
+
+          <div class="scan-divider"><span>或手动粘贴 URI</span></div>
+
           <div class="input-group">
             <label>otpauth URI</label>
             <input
@@ -128,6 +129,9 @@
           <div v-if="uriError" class="uri-error">{{ uriError }}</div>
         </div>
       </div>
+
+      <!-- 摄像头扫描弹窗 -->
+      <QrScanner v-if="showQrScanner" @close="showQrScanner = false" @scanned="onQrScanned" />
 
       <!-- 确认按钮 -->
       <div class="modal-footer">
@@ -149,6 +153,7 @@ import { ref, computed } from 'vue'
 import { addAccount } from '../utils/db'
 import { generateRandomSecret, generateOTPAuthURL, generateTOTP } from '../utils/totp'
 import type { TOTPAccount } from '../utils/totp'
+import QrScanner from './QrScanner.vue'
 
 const emit = defineEmits<{
   close: []
@@ -158,6 +163,7 @@ const emit = defineEmits<{
 const tab = ref<'manual' | 'scan'>('manual')
 const uriInput = ref('')
 const uriError = ref('')
+const showQrScanner = ref(false)
 
 const form = ref({
   issuer: '',
@@ -209,6 +215,12 @@ function parseURI() {
   form.value.keyType = 'time-based'
 
   parseField()
+}
+
+function onQrScanned(uri: string) {
+  showQrScanner.value = false
+  uriInput.value = uri
+  parseURI()
 }
 
 async function pasteSecret() {
@@ -423,15 +435,42 @@ async function saveAccount() {
   text-align: center;
 }
 
-.scan-icon {
-  margin: 12px 0;
+.scan-camera-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 28px 20px;
+  background: var(--bg-primary);
+  border: 1px dashed var(--border-light);
+  border-radius: var(--radius);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  margin-bottom: 16px;
+}
+.scan-camera-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
 }
 
-.scan-hint {
-  font-size: 13px;
-  color: var(--text-muted);
-  line-height: 1.6;
+.scan-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 16px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.scan-divider::before,
+.scan-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
 }
 
 .uri-error {
