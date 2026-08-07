@@ -82,11 +82,27 @@
         <section class="section">
           <h3 class="section-title">WebDAV 备份</h3>
           <div class="input-group">
+            <label>请求渠道</label>
+            <select class="input" v-model="proxyMode" @change="onProxyModeChange">
+              <option value="">直连（不使用代理）</option>
+              <option value="__custom__">Vercel 代理（绕过 CF 520）</option>
+            </select>
+          </div>
+          <div class="input-group" v-if="proxyMode === '__custom__'">
+            <label>代理地址</label>
+            <input
+              v-model="cfg.webdavProxy"
+              type="url"
+              placeholder="https://your-proxy.vercel.app"
+              class="input"
+            />
+          </div>
+          <div class="input-group">
             <label>WebDAV 地址</label>
             <input
               v-model="cfg.webdavUrl"
               type="url"
-              placeholder="https://example.com/remote.php/dav/files/user/"
+              placeholder="https://dav.jianguoyun.com/dav/"
               class="input"
             />
           </div>
@@ -161,7 +177,8 @@ import {
   backupToWebDAV,
   restoreFromWebDAV,
   backupToKV,
-  restoreFromKV
+  restoreFromKV,
+  PROXY_PRESETS
 } from '../utils/backup'
 import type { TOTPAccount } from '../utils/totp'
 
@@ -171,6 +188,7 @@ const emit = defineEmits<{
 }>()
 
 const cfg = ref(loadBackupConfig())
+const proxyMode = ref<string>(cfg.value.webdavProxy ? '__custom__' : '')
 const syncing = ref<string | false>(false)
 const syncingBool = computed(() => syncing.value !== false)
 const syncingKVUp = computed(() => syncing.value === 'kv-up')
@@ -192,7 +210,20 @@ onMounted(() => {
 })
 
 function saveCfg() {
+  // 同步代理模式到 cfg
+  if (proxyMode.value === '') {
+    cfg.value.webdavProxy = ''
+  }
   saveBackupConfig(cfg.value)
+}
+
+function onProxyModeChange() {
+  if (proxyMode.value === '') {
+    cfg.value.webdavProxy = ''
+  } else if (proxyMode.value === '__custom__' && !cfg.value.webdavProxy) {
+    cfg.value.webdavProxy = ''
+  }
+  saveCfg()
 }
 
 // 导出
