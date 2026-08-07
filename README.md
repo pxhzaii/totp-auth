@@ -53,19 +53,23 @@ id = "你的KV命名空间ID"
 ### 4. 创建 Pages 项目
 
 Dashboard → Workers & Pages → 创建 → Pages → 连接 Git 仓库
+注意是最下方的小字 `想要部署 Pages？开始使用`
+注意是最下方的小字 `想要部署 Pages？开始使用`
+注意是最下方的小字 `想要部署 Pages？开始使用`
+注意是最下方的小字 `想要部署 Pages？开始使用`
 
 | 设置项 | 值 |
 |---|---|
 | 构建命令 | `npm run build` |
 | 输出目录 | `dist` |
 
-### 5. 绑定 KV 命名空间
+### 5. 绑定 KV 命名空间(现在好像会自动绑定)
 
 项目 Settings → Functions → KV namespace bindings
 
 | 变量名 | KV 命名空间 |
 |---|---|
-| `TOTP_KV` | 第 2 步创建的命名空间 |
+| `TOTP_KV` | 第 2 步创建的命名空间ID |
 
 部署后需重新部署一次，使 KV 绑定生效
 
