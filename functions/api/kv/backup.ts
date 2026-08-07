@@ -3,24 +3,59 @@
 
 interface Env {
   TOTP_KV: KVNamespace
+  CLOUD_PASSWORD: string
 }
 
-// 密码验证
+// 安全字符串比较（防止时序攻击）
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    // 即使长度不同，也要消耗相同时间
+    const dummy = a.length ^ b.length
+    return dummy !== 0 ? false : false
+  }
+  let result = 0
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  }
+  return result === 0
+}
+
+// 密码验证（默认拒绝）
 function checkPassword(request: Request, env: Env): boolean {
-  const password = request.headers.get('X-Cloud-Password')
+  const password = request.headers.get('X-Cloud-Password') || ''
   const envPassword = env.CLOUD_PASSWORD
-  if (!envPassword) return true // 未设置密码时允许所有请求
-  return password === envPassword
+  // 未设置密码环境变量时拒绝所有请求
+  if (!envPassword) return false
+  if (!password) return false
+  return safeEqual(password, envPassword)
 }
 
-// CORS 头
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Cloud-Password'
+// CORS 头 — 限制为同源，不允许第三方网站访问
+function getCorsHeaders(request: Request) {
+  const origin = request.headers.get('Origin') || ''
+  // 只允许同源请求；如果 Origin 为空（同源请求/非浏览器），放行
+  if (!origin) {
+    return {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Cloud-Password'
+    }
+  }
+  // 对于跨域请求，仅允许与部署域名同源的请求
+  // 生产环境中应替换为你的实际域名
+  const allowedOrigins = [
+    'https://totp.5as.cn',  // 部署域名
+    'http://localhost:8788'  // 本地开发
+  ]
+  const allowOrigin = allowedOrigins.includes(origin) ? origin : ''
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Cloud-Password'
+  }
 }
 
-function jsonResponse(data: any, status = 200): Response {
+function jsonResponse(data: any, status = 200, corsHeaders: Record<string, string>): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
@@ -30,7 +65,7 @@ function jsonResponse(data: any, status = 200): Response {
   })
 }
 
-function errorResponse(message: string, status: number): Response {
+function errorResponse(message: string, status: number, corsHeaders: Record<string, string>): Response {
   return new Response(message, {
     status,
     headers: corsHeaders
@@ -41,6 +76,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   const { request, env } = context
   const url = new URL(request.url)
   const path = url.pathname
+  const corsHeaders = getCorsHeaders(request)
 
   // CORS 预检
   if (request.method === 'OPTIONS') {
@@ -49,7 +85,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
   // 验证密码
   if (!checkPassword(request, env)) {
-    return errorResponse('Unauthorized', 401)
+    return errorResponse('Unauthorized', 401, corsHeaders)
   }
 
   // 路由: /api/kv/backup
@@ -57,13 +93,23 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     const KV_KEY = 'totp_backup_data'
 
     if (request.method === 'PUT') {
-      // 上传备份
+      // 上传备份 — 校验 body 为合法 JSON
       try {
         const body = await request.text()
+        let parsed: any
+        try {
+          parsed = JSON.parse(body)
+        } catch {
+          return errorResponse('请求 body 不是合法 JSON', 400, corsHeaders)
+        }
+        // 基本结构校验
+        if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.accounts)) {
+          return errorResponse('备份数据缺少 accounts 数组', 400, corsHeaders)
+        }
         await env.TOTP_KV.put(KV_KEY, body)
-        return jsonResponse({ success: true, message: '备份成功' })
+        return jsonResponse({ success: true, message: '备份成功' }, 200, corsHeaders)
       } catch (e: any) {
-        return errorResponse(`备份失败: ${e.message}`, 500)
+        return errorResponse(`备份失败: ${e.message}`, 500, corsHeaders)
       }
     }
 
@@ -72,12 +118,12 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       try {
         const data = await env.TOTP_KV.get(KV_KEY)
         if (!data) {
-          return errorResponse('No backup found', 404)
+          return errorResponse('No backup found', 404, corsHeaders)
         }
         const parsed = JSON.parse(data)
-        return jsonResponse(parsed)
+        return jsonResponse(parsed, 200, corsHeaders)
       } catch (e: any) {
-        return errorResponse(`恢复失败: ${e.message}`, 500)
+        return errorResponse(`恢复失败: ${e.message}`, 500, corsHeaders)
       }
     }
 
@@ -85,12 +131,12 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       // 删除备份
       try {
         await env.TOTP_KV.delete(KV_KEY)
-        return jsonResponse({ success: true, message: '已删除备份' })
+        return jsonResponse({ success: true, message: '已删除备份' }, 200, corsHeaders)
       } catch (e: any) {
-        return errorResponse(`删除失败: ${e.message}`, 500)
+        return errorResponse(`删除失败: ${e.message}`, 500, corsHeaders)
       }
     }
   }
 
-  return errorResponse('Not Found', 404)
+  return errorResponse('Not Found', 404, corsHeaders)
 }

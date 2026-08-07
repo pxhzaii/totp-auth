@@ -197,7 +197,13 @@ function parseURI() {
     return
   }
 
-  const label = decodeURIComponent(match[1])
+  // 安全 decodeURIComponent
+  let label: string
+  try {
+    label = decodeURIComponent(match[1])
+  } catch {
+    label = match[1]
+  }
   const colonIdx = label.indexOf(':')
   if (colonIdx > 0) {
     form.value.issuer = label.slice(0, colonIdx)
@@ -210,8 +216,10 @@ function parseURI() {
   const params = new URLSearchParams(match[2])
   form.value.secret = params.get('secret') || ''
   form.value.algorithm = params.get('algorithm') || 'SHA1'
-  form.value.digits = parseInt(params.get('digits') || '6')
-  form.value.period = parseInt(params.get('period') || '30')
+  const digitsVal = parseInt(params.get('digits') || '6')
+  const periodVal = parseInt(params.get('period') || '30')
+  form.value.digits = isNaN(digitsVal) ? 6 : digitsVal
+  form.value.period = isNaN(periodVal) ? 30 : periodVal
   form.value.keyType = 'time-based'
 
   parseField()
@@ -226,6 +234,13 @@ function onQrScanned(uri: string) {
 async function pasteSecret() {
   try {
     const text = await navigator.clipboard.readText()
+    // 如果粘贴的是 otpauth URI，切换到扫描标签页并自动解析
+    if (text.trim().startsWith('otpauth://')) {
+      tab.value = 'scan'
+      uriInput.value = text.trim()
+      parseURI()
+      return
+    }
     form.value.secret = text
     parseField()
   } catch {

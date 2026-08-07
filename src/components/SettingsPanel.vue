@@ -161,8 +161,32 @@ function importData() {
         showToast('文件格式无效', 'error')
         return
       }
-      saveAccounts(data.accounts as TOTPAccount[])
-      showToast(`导入成功 (${data.accounts.length} 个账户)`)
+      // 完整账户格式校验
+      const validAccounts: TOTPAccount[] = []
+      for (const acc of data.accounts) {
+        if (!acc || typeof acc !== 'object') continue
+        if (typeof acc.id !== 'string' || !acc.id) continue
+        if (typeof acc.secret !== 'string' || !acc.secret) continue
+        if (typeof acc.issuer !== 'string') continue
+        if (typeof acc.account !== 'string') continue
+        // period 和 digits 可选，有默认值
+        validAccounts.push({
+          id: acc.id,
+          issuer: acc.issuer || '未命名',
+          account: acc.account || '',
+          secret: acc.secret,
+          period: typeof acc.period === 'number' ? acc.period : 30,
+          digits: typeof acc.digits === 'number' ? acc.digits : 6,
+          createdAt: typeof acc.createdAt === 'number' ? acc.createdAt : Date.now(),
+          order: typeof acc.order === 'number' ? acc.order : Date.now()
+        })
+      }
+      if (validAccounts.length === 0) {
+        showToast('文件中没有有效的账户数据', 'error')
+        return
+      }
+      saveAccounts(validAccounts)
+      showToast(`导入成功 (${validAccounts.length} 个账户)`)
       emit('restored')
     } catch {
       showToast('导入失败，文件格式错误', 'error')

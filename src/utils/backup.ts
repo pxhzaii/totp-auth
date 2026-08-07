@@ -35,12 +35,27 @@ function validateBackupData(data: any): TOTPAccount[] {
   if (data.accounts.length === 0) {
     throw new Error('备份数据为空，没有可恢复的账户')
   }
+  const validAccounts: TOTPAccount[] = []
   for (const acc of data.accounts) {
-    if (!acc.secret || !acc.issuer) {
-      throw new Error('备份数据中有不完整的账户条目')
-    }
+    if (!acc || typeof acc !== 'object') continue
+    // 必须有 secret 和至少 issuer 或 account 之一
+    if (typeof acc.secret !== 'string' || !acc.secret) continue
+    if (typeof acc.issuer !== 'string' && typeof acc.account !== 'string') continue
+    validAccounts.push({
+      id: typeof acc.id === 'string' && acc.id ? acc.id : crypto.randomUUID(),
+      issuer: acc.issuer || '未命名',
+      account: acc.account || '',
+      secret: acc.secret,
+      period: typeof acc.period === 'number' ? acc.period : 30,
+      digits: typeof acc.digits === 'number' ? acc.digits : 6,
+      createdAt: typeof acc.createdAt === 'number' ? acc.createdAt : Date.now(),
+      order: typeof acc.order === 'number' ? acc.order : Date.now()
+    })
   }
-  return data.accounts as TOTPAccount[]
+  if (validAccounts.length === 0) {
+    throw new Error('备份数据中没有有效的账户条目')
+  }
+  return validAccounts
 }
 
 // --- Cloudflare KV 备份 ---

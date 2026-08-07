@@ -43,13 +43,19 @@ export function base32Encode(data: Uint8Array): string {
   return result.join('')
 }
 
+// 安全获取 ArrayBuffer（处理带 byteOffset 的 Uint8Array 视图）
+function toArrayBuffer(uint8: Uint8Array): ArrayBuffer {
+  const buf = uint8.buffer.slice(uint8.byteOffset, uint8.byteOffset + uint8.byteLength)
+  return buf instanceof ArrayBuffer ? buf : new Uint8Array(uint8).buffer
+}
+
 // --- HMAC-SHA1 ---
 async function hmacSha1(key: Uint8Array, message: Uint8Array): Promise<Uint8Array> {
   const cryptoKey = await crypto.subtle.importKey(
-    'raw', key.buffer as ArrayBuffer, { name: 'HMAC', hash: 'SHA-1' },
+    'raw', toArrayBuffer(key), { name: 'HMAC', hash: 'SHA-1' },
     false, ['sign']
   )
-  const sig = await crypto.subtle.sign('HMAC', cryptoKey, message.buffer as ArrayBuffer)
+  const sig = await crypto.subtle.sign('HMAC', cryptoKey, toArrayBuffer(message))
   return new Uint8Array(sig)
 }
 

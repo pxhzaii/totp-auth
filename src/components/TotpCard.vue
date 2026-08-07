@@ -87,12 +87,28 @@ async function copyCode() {
     copied.value = true
     setTimeout(() => { copied.value = false }, 1200)
   } catch {
-    // ignore
+    // clipboard API 不可用时，使用降级方案
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = totpCode.value
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+      copied.value = true
+      setTimeout(() => { copied.value = false }, 1200)
+    } catch {
+      // 两种方式都失败，静默忽略
+    }
   }
 }
 
 function confirmDelete() {
-  emit('delete', props.account.id)
+  if (confirm(`确定删除账户「${props.account.issuer || props.account.account}」吗？删除后无法恢复。`)) {
+    emit('delete', props.account.id)
+  }
 }
 </script>
 
@@ -180,6 +196,12 @@ function confirmDelete() {
 }
 .card:hover .card-actions {
   opacity: 1;
+}
+/* 移动端始终显示操作按钮 */
+@media (hover: none) {
+  .card-actions {
+    opacity: 1;
+  }
 }
 
 .action-btn {
