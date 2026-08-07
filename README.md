@@ -42,7 +42,7 @@ Cloudflare Dashboard → Workers & Pages → KV → 创建命名空间，记下�
 
 ### 3. 修改 wrangler.toml
 
-将 `id` 替换为你的 KV 命名空间 ID（仅本地 `wrangler dev` 需要，线上部署通过 Dashboard 绑定即可）：
+将 `id` 替换为你的 KV 命名空间 ID：
 
 ```toml
 [[kv_namespaces]]
