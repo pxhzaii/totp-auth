@@ -1,5 +1,35 @@
 <template>
-  <div class="app-container">
+  <!-- 访问口令锁屏 -->
+  <div v-if="!accessAuthed" class="lock-screen">
+    <div class="lock-card">
+      <div class="lock-icon">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <h2 class="lock-title">TOTP 验证器</h2>
+      <p class="lock-desc">请输入访问口令以继续</p>
+      <div class="lock-form">
+        <input
+          ref="lockInputRef"
+          v-model="accessPassword"
+          type="password"
+          class="lock-input"
+          placeholder="访问口令"
+          @keydown.enter="submitAccess"
+          :disabled="accessLoading"
+        />
+        <button class="lock-btn" :disabled="!accessPassword.trim() || accessLoading" @click="submitAccess">
+          {{ accessLoading ? '验证中...' : '进入' }}
+        </button>
+      </div>
+      <p v-if="accessError" class="lock-error">{{ accessError }}</p>
+    </div>
+  </div>
+
+  <!-- 主内容 -->
+  <div v-else class="app-container">
     <!-- 顶部栏 -->
     <header class="header">
       <div class="header-left">
@@ -55,13 +85,48 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import TotpCard from './components/TotpCard.vue'
 import AddModal from './components/AddModal.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import { loadAccounts, deleteAccount, updateAccount } from './utils/db'
+import { isAccessAuthed, markAccessAuthed, verifyAccessPassword } from './utils/auth'
 import type { TOTPAccount } from './utils/totp'
 
+// --- 访问口令 ---
+const accessAuthed = ref(isAccessAuthed())
+const accessPassword = ref('')
+const accessLoading = ref(false)
+const accessError = ref('')
+const lockInputRef = ref<HTMLInputElement | null>(null)
+
+// 如果未认证，等 DOM 渲染后聚焦输入框
+if (!accessAuthed.value) {
+  nextTick(() => {
+    lockInputRef.value?.focus()
+  })
+}
+
+async function submitAccess() {
+  if (!accessPassword.value.trim() || accessLoading.value) return
+  accessLoading.value = true
+  accessError.value = ''
+  try {
+    const valid = await verifyAccessPassword(accessPassword.value.trim())
+    if (valid) {
+      markAccessAuthed()
+      accessAuthed.value = true
+    } else {
+      accessError.value = '口令错误，请重试'
+      accessPassword.value = ''
+    }
+  } catch {
+    accessError.value = '验证失败，请检查网络连接'
+  }
+  accessLoading.value = false
+}
+
+// --- 主应用逻辑 ---
 const accounts = ref<TOTPAccount[]>([])
 const currentTime = ref(Date.now())
 const showAddModal = ref(false)
@@ -112,6 +177,97 @@ function onRestored() {
 </script>
 
 <style scoped>
+/* 锁屏界面 */
+.lock-screen {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  animation: fadeIn 0.4s ease;
+}
+
+.lock-card {
+  width: 100%;
+  max-width: 340px;
+  padding: 40px 28px;
+  text-align: center;
+}
+
+.lock-icon {
+  margin-bottom: 20px;
+  opacity: 0.85;
+}
+
+.lock-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.lock-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 28px;
+}
+
+.lock-form {
+  display: flex;
+  gap: 8px;
+}
+
+.lock-input {
+  flex: 1;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.lock-input:focus {
+  border-color: var(--accent);
+}
+.lock-input::placeholder {
+  color: var(--text-muted);
+}
+.lock-input:disabled {
+  opacity: 0.5;
+}
+
+.lock-btn {
+  padding: 10px 20px;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+.lock-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+.lock-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.lock-error {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--danger);
+}
+
+/* 主容器 */
 .app-container {
   height: 100%;
   display: flex;

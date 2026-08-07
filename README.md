@@ -3,10 +3,10 @@ AIGC:
   ContentProducer: '001191110102MAD55U9H0F10002'
   ContentPropagator: '001191110102MAD55U9H0F10002'
   Label: '1'
-  ProduceID: 'cf1c4ce8-af27-48f9-94ea-4d7d330baa6a'
-  PropagateID: 'cf1c4ce8-af27-48f9-94ea-4d7d330baa6a'
-  ReservedCode1: '41da47e4-5962-4a96-a0af-d0ab6f9fab27'
-  ReservedCode2: '41da47e4-5962-4a96-a0af-d0ab6f9fab27'
+  ProduceID: 'c9653a18-25a7-445a-bf33-67dc07602360'
+  PropagateID: 'c9653a18-25a7-445a-bf33-67dc07602360'
+  ReservedCode1: '65b206eb-4110-4cae-9c87-3b4e4f515c8b'
+  ReservedCode2: '65b206eb-4110-4cae-9c87-3b4e4f515c8b'
 ---
 
 # TOTP Authenticator
@@ -21,7 +21,8 @@ AIGC:
 - **添加账户** — 手动输入密钥 / 粘贴 `otpauth://` URI / 摄像头扫描二维码
 - **智能粘贴** — 在密钥框粘贴 `otpauth://` URI 时自动切换到 URI 解析模式
 - **本地存储** — 密钥存 localStorage，纯 JSON 明文存储（无 XOR 加密，避免截断 bug）
-- **Cloudflare KV 备份** — 通过 Pages Functions API 备份，口令保护，默认拒绝未授权访问
+- **访问口令保护** — 设置 `ACCESS_PASSWORD` 后，打开页面需输入口令，15 分钟内免输入，关闭标签页重新索要
+- **Cloudflare KV 备份** — 通过 Pages Functions API 备份，`CLOUD_PASSWORD` 口令保护，默认拒绝未授权访问
 - **删除确认** — 删除账户前弹出确认，防止误触
 - **数据校验** — 导入/恢复时逐字段校验，跳过无效条目，补全默认值
 - **移动端适配** — 操作按钮在触屏设备始终可见，暗色主题
@@ -55,7 +56,8 @@ Dashboard → Workers & Pages → 创建 → 连接 Git 仓库 `pxhzaii/totp-aut
 
 | 变量名 | 说明 |
 |---|---|
-| `CLOUD_PASSWORD` | 备份访问口令，**必须设置**，否则所有备份请求将被拒绝 |
+| `CLOUD_PASSWORD` | 备份同步口令，**必须设置**，否则所有备份请求将被拒绝 |
+| `ACCESS_PASSWORD` | 页面访问口令（可选），设置后打开页面需输入口令才能访问，15 分钟有效 |
 
 ### 5. 修改 wrangler.toml
 
