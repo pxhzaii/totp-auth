@@ -42,7 +42,7 @@
 
         <!-- Cloudflare KV 备份 -->
         <section class="section">
-          <h3 class="section-title">Cloudflare KV 备份</h3>
+          <h3 class="section-title">云端备份</h3>
           <div class="input-group">
             <label>访问口令</label>
             <input
@@ -60,7 +60,7 @@
                 </svg>
               </div>
               <div class="action-info">
-                <span class="action-label">{{ syncingKVUp ? '备份中...' : '上传到 KV' }}</span>
+                <span class="action-label">{{ syncingUp ? '备份中...' : '上传到云端' }}</span>
                 <span class="action-desc">将当前数据备份到 Cloudflare KV</span>
               </div>
             </button>
@@ -71,81 +71,8 @@
                 </svg>
               </div>
               <div class="action-info">
-                <span class="action-label">{{ syncingKVDown ? '恢复中...' : '从 KV 恢复' }}</span>
+                <span class="action-label">{{ syncingDown ? '恢复中...' : '从云端恢复' }}</span>
                 <span class="action-desc">从 Cloudflare KV 拉取数据恢复到本地</span>
-              </div>
-            </button>
-          </div>
-        </section>
-
-        <!-- WebDAV 备份 -->
-        <section class="section">
-          <h3 class="section-title">WebDAV 备份</h3>
-          <div class="input-group">
-            <label>请求渠道</label>
-            <select class="input" v-model="proxyMode" @change="onProxyModeChange">
-              <option value="">自带代理（同域 /api/webdav-proxy）</option>
-              <option value="__custom__">Vercel 外部代理</option>
-              <option value="none">直连（不使用代理）</option>
-            </select>
-          </div>
-          <div class="input-group" v-if="proxyMode === '__custom__'">
-            <label>代理地址</label>
-            <input
-              v-model="cfg.webdavProxy"
-              type="url"
-              placeholder="https://your-proxy.vercel.app"
-              class="input"
-            />
-          </div>
-          <div class="input-group">
-            <label>WebDAV 地址</label>
-            <input
-              v-model="cfg.webdavUrl"
-              type="url"
-              placeholder="https://dav.jianguoyun.com/dav/"
-              class="input"
-            />
-          </div>
-          <div class="input-group">
-            <label>用户名</label>
-            <input
-              v-model="cfg.webdavUsername"
-              type="text"
-              placeholder="用户名"
-              class="input"
-            />
-          </div>
-          <div class="input-group">
-            <label>密码</label>
-            <input
-              v-model="cfg.webdavPassword"
-              type="password"
-              placeholder="密码"
-              class="input"
-            />
-          </div>
-          <div class="section-actions">
-            <button class="action-row sync-row" :disabled="syncingBool" @click="backupWebDAV">
-              <div class="action-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-                </svg>
-              </div>
-              <div class="action-info">
-                <span class="action-label">{{ syncingWebDAVUp ? '备份中...' : '上传到 WebDAV' }}</span>
-                <span class="action-desc">将当前数据备份到 WebDAV 服务器</span>
-              </div>
-            </button>
-            <button class="action-row sync-row" :disabled="syncingBool" @click="restoreWebDAV">
-              <div class="action-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
-                </svg>
-              </div>
-              <div class="action-info">
-                <span class="action-label">{{ syncingWebDAVDown ? '恢复中...' : '从 WebDAV 恢复' }}</span>
-                <span class="action-desc">从 WebDAV 服务器拉取数据恢复到本地</span>
               </div>
             </button>
           </div>
@@ -157,7 +84,7 @@
           <p class="about-text">
             TOTP 验证器 v1.0<br/>
             纯前端运行，密钥仅保存在本地存储中。<br/>
-            支持 WebDAV 和 Cloudflare KV 备份。
+            支持 Cloudflare KV 云端备份。
           </p>
         </section>
       </div>
@@ -169,17 +96,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { loadAccounts, saveAccounts } from '../utils/db'
 import { serializeBackup } from '../utils/totp'
 import {
   loadBackupConfig,
   saveBackupConfig,
-  backupToWebDAV,
-  restoreFromWebDAV,
   backupToKV,
-  restoreFromKV,
-  PROXY_PRESETS
+  restoreFromKV
 } from '../utils/backup'
 import type { TOTPAccount } from '../utils/totp'
 
@@ -189,13 +113,10 @@ const emit = defineEmits<{
 }>()
 
 const cfg = ref(loadBackupConfig())
-const proxyMode = ref<string>(cfg.value.webdavProxy === 'none' ? 'none' : (cfg.value.webdavProxy ? '__custom__' : ''))
 const syncing = ref<string | false>(false)
 const syncingBool = computed(() => syncing.value !== false)
-const syncingKVUp = computed(() => syncing.value === 'kv-up')
-const syncingKVDown = computed(() => syncing.value === 'kv-down')
-const syncingWebDAVUp = computed(() => syncing.value === 'webdav-up')
-const syncingWebDAVDown = computed(() => syncing.value === 'webdav-down')
+const syncingUp = computed(() => syncing.value === 'up')
+const syncingDown = computed(() => syncing.value === 'down')
 const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null)
 
 let toastTimer: number
@@ -206,27 +127,8 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
   toastTimer = window.setTimeout(() => { toast.value = null }, 3000)
 }
 
-onMounted(() => {
-  // 自动保存配置
-})
-
 function saveCfg() {
-  // 同步代理模式到 cfg
-  if (proxyMode.value === '') {
-    cfg.value.webdavProxy = ''
-  }
   saveBackupConfig(cfg.value)
-}
-
-function onProxyModeChange() {
-  if (proxyMode.value === '__custom__') {
-    // 保留原有外部代理地址或留空让用户填
-  } else if (proxyMode.value === 'none') {
-    cfg.value.webdavProxy = 'none'
-  } else {
-    cfg.value.webdavProxy = ''
-  }
-  saveCfg()
 }
 
 // 导出
@@ -272,7 +174,7 @@ function importData() {
 // KV 备份
 async function backupKV() {
   saveCfg()
-  syncing.value = 'kv-up'
+  syncing.value = 'up'
   try {
     const msg = await backupToKV(cfg.value)
     showToast(msg)
@@ -285,40 +187,13 @@ async function backupKV() {
 async function restoreKV() {
   if (!confirm('恢复将覆盖当前本地的所有账户数据，是否继续？')) return
   saveCfg()
-  syncing.value = 'kv-down'
+  syncing.value = 'down'
   try {
     const { message } = await restoreFromKV(cfg.value)
     showToast(message)
     emit('restored')
   } catch (e: any) {
     showToast(e.message || 'KV 恢复失败', 'error')
-  }
-  syncing.value = false
-}
-
-// WebDAV 备份
-async function backupWebDAV() {
-  saveCfg()
-  syncing.value = 'webdav-up'
-  try {
-    const msg = await backupToWebDAV(cfg.value)
-    showToast(msg)
-  } catch (e: any) {
-    showToast(e.message || 'WebDAV 备份失败', 'error')
-  }
-  syncing.value = false
-}
-
-async function restoreWebDAV() {
-  if (!confirm('恢复将覆盖当前本地的所有账户数据，是否继续？')) return
-  saveCfg()
-  syncing.value = 'webdav-down'
-  try {
-    const { message } = await restoreFromWebDAV(cfg.value)
-    showToast(message)
-    emit('restored')
-  } catch (e: any) {
-    showToast(e.message || 'WebDAV 恢复失败', 'error')
   }
   syncing.value = false
 }
