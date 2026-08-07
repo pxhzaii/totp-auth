@@ -212,6 +212,7 @@ function importData() {
   input.onchange = async () => {
     const file = input.files?.[0]
     if (!file) return
+    if (!confirm('导入将覆盖当前本地的所有账户数据，是否继续？')) return
     try {
       const text = await file.text()
       const data = JSON.parse(text)
@@ -243,6 +244,7 @@ async function backupKV() {
 }
 
 async function restoreKV() {
+  if (!confirm('恢复将覆盖当前本地的所有账户数据，是否继续？')) return
   saveCfg()
   syncing.value = 'kv-down'
   try {
@@ -269,6 +271,7 @@ async function backupWebDAV() {
 }
 
 async function restoreWebDAV() {
+  if (!confirm('恢复将覆盖当前本地的所有账户数据，是否继续？')) return
   saveCfg()
   syncing.value = 'webdav-down'
   try {
