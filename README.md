@@ -3,22 +3,21 @@ AIGC:
   ContentProducer: '001191110102MAD55U9H0F10002'
   ContentPropagator: '001191110102MAD55U9H0F10002'
   Label: '1'
-  ProduceID: 'c9653a18-25a7-445a-bf33-67dc07602360'
-  PropagateID: 'c9653a18-25a7-445a-bf33-67dc07602360'
-  ReservedCode1: '65b206eb-4110-4cae-9c87-3b4e4f515c8b'
-  ReservedCode2: '65b206eb-4110-4cae-9c87-3b4e4f515c8b'
+  ProduceID: '365e93d8-f72a-4064-910b-13ef0da71041'
+  PropagateID: '365e93d8-f72a-4064-910b-13ef0da71041'
+  ReservedCode1: 'f11f1eb3-ff77-4d79-8554-84746dd0b853'
+  ReservedCode2: 'f11f1eb3-ff77-4d79-8554-84746dd0b853'
 ---
 
 # TOTP Authenticator
 
 部署在 Cloudflare Pages 上的两步验证器，支持 Cloudflare KV 云端备份。
 
-- **演示站点** https://totp-auth-1d9.pages.dev/ 
-- **密码**密码11 
-- **同步密码**同步密码22 
-- **注意**因为可能会有其他人测试，所以可能会有同步/恢复丢失的情况
+- **演示站点** https://totp-auth-1d9.pages.dev/
+- **访问密码** 密码11
+- **同步密码** 同步密码22
+- **注意** 因为可能会有其他人测试，所以可能会有同步/恢复丢失的情况
 
-  
 ## 功能
 
 - **TOTP 生成** — 纯浏览器端计算，RFC 6238 标准，6 位 / 30 秒
@@ -35,39 +34,43 @@ AIGC:
 
 ## 部署
 
-### 1. 创建 KV 命名空间
+### 1. Fork 或克隆本仓库
 
-Cloudflare Dashboard → Workers & Pages → KV → 创建命名空间
+### 2. 创建 KV 命名空间
 
-### 2. 创建 Pages 项目
+Cloudflare Dashboard → Workers & Pages → KV → 创建命名空间，记下命名空间 ID
 
-Dashboard → Workers & Pages → 创建 → 连接 Git 仓库 `pxhzaii/totp-auth`
+### 3. 创建 Pages 项目
+
+Dashboard → Workers & Pages → 创建 → Pages → 连接 Git 仓库
 
 | 设置项 | 值 |
 |---|---|
 | 构建命令 | `npm run build` |
 | 输出目录 | `dist` |
 
-### 3. 绑定 KV
+### 4. 绑定 KV 命名空间
 
 项目 Settings → Functions → KV namespace bindings
 
 | 变量名 | KV 命名空间 |
 |---|---|
-| `TOTP_KV` | 上一步创建的命名空间 |
+| `TOTP_KV` | 第 2 步创建的命名空间 |
 
-### 4. 设置环境变量
+部署后需重新部署一次，使 KV 绑定生效
 
-项目 Settings → Environment variables
+### 5. 设置环境变量
+
+项目 Settings → Environment variables（Production 和 Preview 都需设置）
 
 | 变量名 | 说明 |
 |---|---|
 | `CLOUD_PASSWORD` | 备份同步口令，**必须设置**，否则所有备份请求将被拒绝 |
 | `ACCESS_PASSWORD` | 页面访问口令（可选），设置后打开页面需输入口令才能访问，15 分钟有效 |
 
-### 5. 修改 wrangler.toml
+### 6. 本地开发：修改 wrangler.toml
 
-将 `id` 替换为你的 KV 命名空间 ID：
+将 `id` 替换为你的 KV 命名空间 ID（仅本地 `wrangler dev` 需要，线上部署通过 Dashboard 绑定即可）：
 
 ```toml
 [[kv_namespaces]]
