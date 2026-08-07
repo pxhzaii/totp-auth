@@ -38,7 +38,7 @@ AIGC:
 
 ### 2. 创建 KV 命名空间
 
-Cloudflare Dashboard → Workers & Pages → KV → 创建命名空间，记下命名空间 ID
+Cloudflare Dashboard → Workers & Pages → KV → 创建命名空间TOTP_KV，记下命名空间 ID
 
 ### 3. 修改 wrangler.toml
 
