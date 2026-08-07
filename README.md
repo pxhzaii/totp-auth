@@ -1,13 +1,4 @@
----
-AIGC:
-  ContentProducer: '001191110102MAD55U9H0F10002'
-  ContentPropagator: '001191110102MAD55U9H0F10002'
-  Label: '1'
-  ProduceID: '365e93d8-f72a-4064-910b-13ef0da71041'
-  PropagateID: '365e93d8-f72a-4064-910b-13ef0da71041'
-  ReservedCode1: 'f11f1eb3-ff77-4d79-8554-84746dd0b853'
-  ReservedCode2: 'f11f1eb3-ff77-4d79-8554-84746dd0b853'
----
+
 
 # TOTP Authenticator
 
