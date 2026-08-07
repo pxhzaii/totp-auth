@@ -10,14 +10,15 @@
     "deploy": "pnpm build && wrangler pages deploy ./dist --branch main"
   },
   "dependencies": {
+    "jsqr": "^1.4.0",
     "vue": "^3.4.21"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240320.1",
     "@vitejs/plugin-vue": "^5.0.4",
     "typescript": "^5.4.2",
     "vite": "^5.1.6",
     "vue-tsc": "^2.0.6",
-    "@cloudflare/workers-types": "^4.20240320.1",
     "wrangler": "^3.36.0"
   }
 }
