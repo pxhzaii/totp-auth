@@ -13,7 +13,7 @@ AIGC:
 
 部署在 Cloudflare Pages 上的两步验证器，支持 Cloudflare KV 云端备份。
 
-- **测试网址** https://totp-auth-1d9.pages.dev/ 
+- **演示站点** https://totp-auth-1d9.pages.dev/ 
 - **密码**密码11 
 - **同步密码**同步密码22 
 - **注意**因为可能会有其他人测试，所以可能会有同步/恢复丢失的情况
