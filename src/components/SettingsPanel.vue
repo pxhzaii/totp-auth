@@ -53,25 +53,25 @@
             />
           </div>
           <div class="section-actions">
-            <button class="action-row sync-row" :disabled="syncing" @click="backupKV">
+            <button class="action-row sync-row" :disabled="syncingBool" @click="backupKV">
               <div class="action-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
                 </svg>
               </div>
               <div class="action-info">
-                <span class="action-label">{{ syncing === 'kv-up' ? '备份中...' : '上传到 KV' }}</span>
+                <span class="action-label">{{ syncingKVUp ? '备份中...' : '上传到 KV' }}</span>
                 <span class="action-desc">将当前数据备份到 Cloudflare KV</span>
               </div>
             </button>
-            <button class="action-row sync-row" :disabled="syncing" @click="restoreKV">
+            <button class="action-row sync-row" :disabled="syncingBool" @click="restoreKV">
               <div class="action-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
                 </svg>
               </div>
               <div class="action-info">
-                <span class="action-label">{{ syncing === 'kv-down' ? '恢复中...' : '从 KV 恢复' }}</span>
+                <span class="action-label">{{ syncingKVDown ? '恢复中...' : '从 KV 恢复' }}</span>
                 <span class="action-desc">从 Cloudflare KV 拉取数据恢复到本地</span>
               </div>
             </button>
@@ -109,25 +109,25 @@
             />
           </div>
           <div class="section-actions">
-            <button class="action-row sync-row" :disabled="syncing" @click="backupWebDAV">
+            <button class="action-row sync-row" :disabled="syncingBool" @click="backupWebDAV">
               <div class="action-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
                 </svg>
               </div>
               <div class="action-info">
-                <span class="action-label">{{ syncing === 'webdav-up' ? '备份中...' : '上传到 WebDAV' }}</span>
+                <span class="action-label">{{ syncingWebDAVUp ? '备份中...' : '上传到 WebDAV' }}</span>
                 <span class="action-desc">将当前数据备份到 WebDAV 服务器</span>
               </div>
             </button>
-            <button class="action-row sync-row" :disabled="syncing" @click="restoreWebDAV">
+            <button class="action-row sync-row" :disabled="syncingBool" @click="restoreWebDAV">
               <div class="action-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
                 </svg>
               </div>
               <div class="action-info">
-                <span class="action-label">{{ syncing === 'webdav-down' ? '恢复中...' : '从 WebDAV 恢复' }}</span>
+                <span class="action-label">{{ syncingWebDAVDown ? '恢复中...' : '从 WebDAV 恢复' }}</span>
                 <span class="action-desc">从 WebDAV 服务器拉取数据恢复到本地</span>
               </div>
             </button>
@@ -152,7 +152,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { loadAccounts, saveAccounts } from '../utils/db'
 import { serializeBackup } from '../utils/totp'
 import {
@@ -172,6 +172,11 @@ const emit = defineEmits<{
 
 const cfg = ref(loadBackupConfig())
 const syncing = ref<string | false>(false)
+const syncingBool = computed(() => syncing.value !== false)
+const syncingKVUp = computed(() => syncing.value === 'kv-up')
+const syncingKVDown = computed(() => syncing.value === 'kv-down')
+const syncingWebDAVUp = computed(() => syncing.value === 'webdav-up')
+const syncingWebDAVDown = computed(() => syncing.value === 'webdav-down')
 const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null)
 
 let toastTimer: number

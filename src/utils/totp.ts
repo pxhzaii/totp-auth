@@ -46,10 +46,10 @@ export function base32Encode(data: Uint8Array): string {
 // --- HMAC-SHA1 ---
 async function hmacSha1(key: Uint8Array, message: Uint8Array): Promise<Uint8Array> {
   const cryptoKey = await crypto.subtle.importKey(
-    'raw', key, { name: 'HMAC', hash: 'SHA-1' },
+    'raw', key.buffer as ArrayBuffer, { name: 'HMAC', hash: 'SHA-1' },
     false, ['sign']
   )
-  const sig = await crypto.subtle.sign('HMAC', cryptoKey, message)
+  const sig = await crypto.subtle.sign('HMAC', cryptoKey, message.buffer as ArrayBuffer)
   return new Uint8Array(sig)
 }
 
