@@ -40,7 +40,17 @@ AIGC:
 
 Cloudflare Dashboard → Workers & Pages → KV → 创建命名空间，记下命名空间 ID
 
-### 3. 创建 Pages 项目
+### 3. 修改 wrangler.toml
+
+将 `id` 替换为你的 KV 命名空间 ID（仅本地 `wrangler dev` 需要，线上部署通过 Dashboard 绑定即可）：
+
+```toml
+[[kv_namespaces]]
+binding = "TOTP_KV"
+id = "你的KV命名空间ID"
+```
+
+### 4. 创建 Pages 项目
 
 Dashboard → Workers & Pages → 创建 → Pages → 连接 Git 仓库
 
@@ -49,7 +59,7 @@ Dashboard → Workers & Pages → 创建 → Pages → 连接 Git 仓库
 | 构建命令 | `npm run build` |
 | 输出目录 | `dist` |
 
-### 4. 绑定 KV 命名空间
+### 5. 绑定 KV 命名空间
 
 项目 Settings → Functions → KV namespace bindings
 
@@ -59,7 +69,7 @@ Dashboard → Workers & Pages → 创建 → Pages → 连接 Git 仓库
 
 部署后需重新部署一次，使 KV 绑定生效
 
-### 5. 设置环境变量
+### 6. 设置环境变量
 
 项目 Settings → Environment variables（Production 和 Preview 都需设置）
 
@@ -68,15 +78,7 @@ Dashboard → Workers & Pages → 创建 → Pages → 连接 Git 仓库
 | `CLOUD_PASSWORD` | 备份同步口令，**必须设置**，否则所有备份请求将被拒绝 |
 | `ACCESS_PASSWORD` | 页面访问口令（可选），设置后打开页面需输入口令才能访问，15 分钟有效 |
 
-### 6. 本地开发：修改 wrangler.toml
 
-将 `id` 替换为你的 KV 命名空间 ID（仅本地 `wrangler dev` 需要，线上部署通过 Dashboard 绑定即可）：
-
-```toml
-[[kv_namespaces]]
-binding = "TOTP_KV"
-id = "你的KV命名空间ID"
-```
 
 ## 本地开发
 
