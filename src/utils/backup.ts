@@ -9,7 +9,7 @@ export interface BackupConfig {
   webdavUrl: string
   webdavUsername: string
   webdavPassword: string
-  webdavProxy: string   // 代理地址，为空则直连
+  webdavProxy: string   // 代理地址，为空则走自带代理，'none' 表示直连
   cloudflarePassword: string
 }
 
@@ -19,12 +19,13 @@ const BACKUP_PATH = 'totp-backup.json'
 // --- 代理预设 ---
 export interface ProxyOption {
   label: string
-  value: string  // 代理地址，空字符串表示直连
+  value: string
 }
 
 export const PROXY_PRESETS: ProxyOption[] = [
-  { label: '直连（不使用代理）', value: '' },
-  { label: 'Vercel 代理（keyvault-webdav-proxy）', value: '__custom__' },
+  { label: '自带代理（同域 /api/webdav-proxy）', value: '' },
+  { label: 'Vercel 外部代理', value: '__custom__' },
+  { label: '直连（不使用代理）', value: 'none' },
 ]
 
 // --- 备份配置 ---
@@ -57,7 +58,6 @@ function validateBackupData(data: any): TOTPAccount[] {
   if (data.accounts.length === 0) {
     throw new Error('备份数据为空，没有可恢复的账户')
   }
-  // 校验每个账户必要字段
   for (const acc of data.accounts) {
     if (!acc.secret || !acc.issuer) {
       throw new Error('备份数据中有不完整的账户条目')
@@ -67,8 +67,15 @@ function validateBackupData(data: any): TOTPAccount[] {
 }
 
 // --- WebDAV 代理请求封装 ---
-// 代理格式：Vercel function，GET/HEAD 返回 { status, headers, bodyB64 }
-// 其他方法返回 { status, headers }
+// 三种模式：
+// 1. webdavProxy === 'none' → 直连
+// 2. webdavProxy === '' → 走自带代理（/api/webdav-proxy）
+// 3. webdavProxy 为 URL → 走外部 Vercel 代理
+
+// 自带代理和 Vercel 代理的响应格式不同：
+// - 自带代理：透传原始 HTTP 响应（status + body 直接可用）
+// - Vercel 代理：JSON 包装 { status, headers, bodyB64? }
+
 async function webdavFetch(
   cfg: BackupConfig,
   method: 'GET' | 'PUT',
@@ -78,68 +85,76 @@ async function webdavFetch(
   const targetUrl = baseUrl + '/' + BACKUP_PATH
   const auth = btoa(`${cfg.webdavUsername}:${cfg.webdavPassword}`)
 
-  if (cfg.webdavProxy) {
-    // 走代理：proxy?url=xxx&method=xxx
-    const proxyBase = cfg.webdavProxy.replace(/\/+$/, '')
-    const proxyUrl = `${proxyBase}/api/webdav?url=${encodeURIComponent(targetUrl)}&method=${method}`
-
-    const headers: Record<string, string> = {
-      Authorization: `Basic ${auth}`,
-    }
-    const fetchOpts: RequestInit = { method: 'GET', headers }  // 代理始终用 GET，method 参数指定实际方法
-
-    if (body) {
-      headers['Content-Type'] = 'application/json'
-      fetchOpts.body = body
-    }
-
-    const res = await fetch(proxyUrl, fetchOpts)
-    const json = await res.json()
-
-    if (json.error) {
-      throw new Error(`代理错误: ${json.error}`)
-    }
-
-    // 代理返回的 status
-    const status = json.status as number
-
-    if (method === 'GET') {
-      // bodyB64 解码
-      if (json.bodyB64) {
-        const decoded = atob(json.bodyB64)
-        const data = JSON.parse(decoded)
-        return { status, data }
-      }
-      return { status, data: null }
-    }
-
-    // PUT 等写入操作，代理不返回 body
-    return { status, data: null }
-  } else {
-    // 直连
-    const headers: Record<string, string> = {
-      Authorization: `Basic ${auth}`,
-    }
+  // 直连模式
+  if (cfg.webdavProxy === 'none') {
+    const headers: Record<string, string> = { Authorization: `Basic ${auth}` }
     const fetchOpts: RequestInit = { method, headers }
-
     if (body) {
       headers['Content-Type'] = 'application/json'
       fetchOpts.body = body
     }
-
     const res = await fetch(targetUrl, fetchOpts)
-
     if (!res.ok) {
       throw new Error(`WebDAV ${method === 'PUT' ? '上传' : '下载'}失败: ${res.status} ${res.statusText}`)
     }
-
     if (method === 'GET') {
-      const data = await res.json()
-      return { status: res.status, data }
+      return { status: res.status, data: await res.json() }
     }
-
     return { status: res.status, data: null }
   }
+
+  // 自带代理模式（同域 /api/webdav-proxy，透传响应）
+  if (!cfg.webdavProxy) {
+    const proxyUrl = `/api/webdav-proxy?method=${encodeURIComponent(method)}&url=${encodeURIComponent(targetUrl)}`
+    const headers: Record<string, string> = { Authorization: `Basic ${auth}` }
+    const fetchOpts: RequestInit = { method: 'POST', headers }
+    if (body) {
+      headers['Content-Type'] = 'application/json'
+      fetchOpts.body = body
+    }
+    const res = await fetch(proxyUrl, fetchOpts)
+    if (!res.ok) {
+      // 自带代理 403 = 域名不在白名单, 429 = 速率限制, 502 = 代理错误
+      try {
+        const err = await res.json()
+        throw new Error(err.error || `代理请求失败: ${res.status}`)
+      } catch {
+        throw new Error(`代理请求失败: ${res.status}`)
+      }
+    }
+    if (method === 'GET') {
+      return { status: res.status, data: await res.json() }
+    }
+    return { status: res.status, data: null }
+  }
+
+  // 外部 Vercel 代理模式
+  const proxyBase = cfg.webdavProxy.replace(/\/+$/, '')
+  const proxyUrl = `${proxyBase}/api/webdav?url=${encodeURIComponent(targetUrl)}&method=${method}`
+  const headers: Record<string, string> = { Authorization: `Basic ${auth}` }
+  const fetchOpts: RequestInit = { method: 'POST', headers }
+  if (body) {
+    headers['Content-Type'] = 'application/json'
+    fetchOpts.body = body
+  }
+  const res = await fetch(proxyUrl, fetchOpts)
+  const json = await res.json()
+
+  if (json.error) {
+    throw new Error(`代理错误: ${json.error}`)
+  }
+
+  const status = json.status as number
+  if (status >= 400) {
+    throw new Error(`WebDAV ${method} 失败 (via 代理): HTTP ${status}`)
+  }
+
+  if (method === 'GET' && json.bodyB64) {
+    const decoded = atob(json.bodyB64)
+    const data = JSON.parse(decoded)
+    return { status, data }
+  }
+  return { status, data: null }
 }
 
 // --- WebDAV 备份 ---
@@ -150,15 +165,7 @@ export async function backupToWebDAV(cfg: BackupConfig): Promise<string> {
   if (accounts.length === 0) throw new Error('没有可备份的账户')
 
   const data = serializeBackup(accounts)
-
-  const result = await webdavFetch(cfg, 'PUT', data)
-
-  if (cfg.webdavProxy) {
-    if (result.status < 200 || result.status >= 300) {
-      throw new Error(`WebDAV 上传失败 (via 代理): HTTP ${result.status}`)
-    }
-  }
-
+  await webdavFetch(cfg, 'PUT', data)
   return `WebDAV 备份成功 (${accounts.length} 个账户)`
 }
 
@@ -166,14 +173,6 @@ export async function restoreFromWebDAV(cfg: BackupConfig): Promise<{ accounts: 
   if (!cfg.webdavUrl) throw new Error('WebDAV 地址未配置')
 
   const result = await webdavFetch(cfg, 'GET')
-
-  if (cfg.webdavProxy) {
-    if (result.status === 404) throw new Error('WebDAV 上没有备份数据')
-    if (result.status < 200 || result.status >= 300) {
-      throw new Error(`WebDAV 下载失败 (via 代理): HTTP ${result.status}`)
-    }
-  }
-
   const accounts = validateBackupData(result.data)
   saveAccounts(accounts)
   return { accounts, message: `从 WebDAV 恢复成功 (${accounts.length} 个账户)` }
