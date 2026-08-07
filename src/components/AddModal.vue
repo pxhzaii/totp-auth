@@ -183,33 +183,32 @@ function parseURI() {
   const uri = uriInput.value.trim()
   if (!uri) return
 
-  try {
-    const url = new URL(uri)
-    if (url.protocol !== 'otpauth:' || url.hostname !== 'totp') {
-      uriError.value = '无效的 otpauth URI'
-      return
-    }
-
-    // 解析路径: //issuer:account
-    const path = url.pathname.replace(/^\//, '')
-    const colonIdx = path.indexOf(':')
-    if (colonIdx > 0) {
-      form.value.issuer = decodeURIComponent(path.slice(0, colonIdx))
-      form.value.account = decodeURIComponent(path.slice(colonIdx + 1))
-    } else {
-      form.value.account = decodeURIComponent(path)
-    }
-
-    form.value.secret = url.searchParams.get('secret') || ''
-    form.value.algorithm = url.searchParams.get('algorithm') || 'SHA1'
-    form.value.digits = parseInt(url.searchParams.get('digits') || '6')
-    form.value.period = parseInt(url.searchParams.get('period') || '30')
-    form.value.keyType = 'time-based'
-
-    parseField()
-  } catch {
-    uriError.value = 'URI 格式错误，请检查后重试'
+  // otpauth 协议不是标准 URL，不能用 new URL() 解析
+  // 格式: otpauth://totp/Issuer:Account?secret=xxx&...
+  const match = uri.match(/^otpauth:\/\/totp\/(.+)\?(.+)/)
+  if (!match) {
+    uriError.value = '无效的 otpauth URI'
+    return
   }
+
+  const label = decodeURIComponent(match[1])
+  const colonIdx = label.indexOf(':')
+  if (colonIdx > 0) {
+    form.value.issuer = label.slice(0, colonIdx)
+    form.value.account = label.slice(colonIdx + 1)
+  } else {
+    form.value.account = label
+  }
+
+  // 手动解析 query 参数
+  const params = new URLSearchParams(match[2])
+  form.value.secret = params.get('secret') || ''
+  form.value.algorithm = params.get('algorithm') || 'SHA1'
+  form.value.digits = parseInt(params.get('digits') || '6')
+  form.value.period = parseInt(params.get('period') || '30')
+  form.value.keyType = 'time-based'
+
+  parseField()
 }
 
 async function pasteSecret() {
