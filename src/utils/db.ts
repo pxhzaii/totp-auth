@@ -1,30 +1,13 @@
 // 本地存储管理
 import type { TOTPAccount } from './totp'
-import { encryptSecret, decryptSecret } from './totp'
 
 const STORAGE_KEY = 'totp_accounts'
-const MASTER_KEY_KEY = 'totp_master_key'
-
-// 每次启动时生成一个随机主密钥，用于加密本地存储的密钥
-// 密钥保存在 localStorage 中，避免密钥明文泄露
-function getOrCreateMasterKey(): string {
-  let key = localStorage.getItem(MASTER_KEY_KEY)
-  if (!key) {
-    key = Array.from({ length: 32 }, () =>
-      Math.random().toString(36)[2]
-    ).join('')
-    localStorage.setItem(MASTER_KEY_KEY, key)
-  }
-  return key
-}
 
 export function loadAccounts(): TOTPAccount[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
-    const masterKey = getOrCreateMasterKey()
-    const decrypted = decryptSecret(raw, masterKey)
-    const accounts = JSON.parse(decrypted) as TOTPAccount[]
+    const accounts = JSON.parse(raw) as TOTPAccount[]
     return accounts.sort((a, b) => a.order - b.order)
   } catch {
     return []
@@ -32,10 +15,7 @@ export function loadAccounts(): TOTPAccount[] {
 }
 
 export function saveAccounts(accounts: TOTPAccount[]): void {
-  const masterKey = getOrCreateMasterKey()
-  const plaintext = JSON.stringify(accounts)
-  const encrypted = encryptSecret(plaintext, masterKey)
-  localStorage.setItem(STORAGE_KEY, encrypted)
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts))
 }
 
 export function addAccount(account: TOTPAccount): void {
