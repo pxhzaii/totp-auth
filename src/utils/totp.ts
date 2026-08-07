@@ -146,59 +146,6 @@ export interface TOTPAccount {
   icon?: string
 }
 
-// --- 加密 / 解密密钥 ---
-// 使用简单的 XOR + 随机盐加密，防止明文存储
-// 注意：这并非强加密，主要目的是防止存储文件被直接读取到明文密钥
-// 真正的安全依赖浏览器环境隔离和 Cloudflare 的 HTTPS
-
-function deriveKey(masterKey: string, salt: Uint8Array): Uint8Array {
-  const encoder = new TextEncoder()
-  const mk = encoder.encode(masterKey)
-  const result = new Uint8Array(32)
-  for (let i = 0; i < 32; i++) {
-    result[i] = mk[i % mk.length] ^ (salt[i % salt.length] || 0)
-  }
-  return result
-}
-
-function xorBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
-  const len = Math.min(a.length, b.length)
-  const result = new Uint8Array(len)
-  for (let i = 0; i < len; i++) {
-    result[i] = a[i] ^ b[i]
-  }
-  return result
-}
-
-export function encryptSecret(plaintext: string, masterKey: string): string {
-  const salt = new Uint8Array(16)
-  crypto.getRandomValues(salt)
-  const key = deriveKey(masterKey, salt)
-  const data = new TextEncoder().encode(plaintext)
-  const encrypted = xorBytes(data, key)
-
-  // 格式: salt(16字节) + 加密数据
-  const combined = new Uint8Array(salt.length + encrypted.length)
-  combined.set(salt)
-  combined.set(encrypted, salt.length)
-  return btoa(String.fromCharCode(...combined))
-}
-
-export function decryptSecret(encoded: string, masterKey: string): string {
-  try {
-    const combined = new Uint8Array(
-      atob(encoded).split('').map(c => c.charCodeAt(0))
-    )
-    const salt = combined.slice(0, 16)
-    const encrypted = combined.slice(16)
-    const key = deriveKey(masterKey, salt)
-    const decrypted = xorBytes(encrypted, key)
-    return new TextDecoder().decode(decrypted)
-  } catch {
-    return ''
-  }
-}
-
 // --- 序列化 / 反序列化 (用于备份) ---
 export interface BackupData {
   version: number
