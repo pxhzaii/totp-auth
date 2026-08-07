@@ -5,4 +5,4 @@ compatibility_date = "2024-03-20"
 
 [[kv_namespaces]]
 binding = "TOTP_KV"
-id = "你的KV命名空间ID"
+id = "9a24271bc3e54201b84952513b1ca096"
