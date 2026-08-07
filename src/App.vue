@@ -38,9 +38,7 @@
       </div>
       <div class="header-right">
         <button class="icon-btn" @click="showSettings = true" title="设置">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-          </svg>
+          <span>设置</span>
         </button>
         <button class="add-btn" @click="showAddModal = true" title="添加账户">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -312,13 +310,15 @@ function onRestored() {
 }
 
 .icon-btn {
-  width: 36px;
-  height: 36px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 4px;
+  padding: 6px 14px;
+  height: 36px;
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
   transition: all 0.2s;
 }
 .icon-btn:hover {
