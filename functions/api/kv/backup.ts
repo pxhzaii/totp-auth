@@ -8,13 +8,10 @@ interface Env {
 
 // 安全字符串比较（防止时序攻击）
 function safeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    // 即使长度不同，也要消耗相同时间
-    const dummy = a.length ^ b.length
-    return dummy !== 0 ? false : false
-  }
-  let result = 0
-  for (let i = 0; i < a.length; i++) {
+  // 始终比较到较长字符串的长度，避免通过响应时间泄露长度信息
+  const maxLen = Math.max(a.length, b.length)
+  let result = a.length ^ b.length // 长度不同时 result != 0
+  for (let i = 0; i < maxLen; i++) {
     result |= a.charCodeAt(i) ^ b.charCodeAt(i)
   }
   return result === 0
@@ -33,12 +30,16 @@ function checkPassword(request: Request, env: Env): boolean {
 // CORS 头 — 限制为同源，不允许第三方网站访问
 function getCorsHeaders(request: Request) {
   const origin = request.headers.get('Origin') || ''
+  const baseHeaders: Record<string, string> = {
+    'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Cloud-Password',
+    'Vary': 'Origin'  // 告诉 CDN 不要按 Origin 缓存，每个 Origin 单独缓存
+  }
   // 只允许同源请求；如果 Origin 为空（同源请求/非浏览器），放行
   if (!origin) {
     return {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, X-Cloud-Password'
+      ...baseHeaders
     }
   }
   // 对于跨域请求，仅允许与部署域名同源的请求
@@ -50,8 +51,7 @@ function getCorsHeaders(request: Request) {
   const allowOrigin = allowedOrigins.includes(origin) ? origin : ''
   return {
     'Access-Control-Allow-Origin': allowOrigin,
-    'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Cloud-Password'
+    ...baseHeaders
   }
 }
 

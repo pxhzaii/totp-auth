@@ -43,8 +43,8 @@ function validateBackupData(data: any): TOTPAccount[] {
     if (typeof acc.issuer !== 'string' && typeof acc.account !== 'string') continue
     validAccounts.push({
       id: typeof acc.id === 'string' && acc.id ? acc.id : crypto.randomUUID(),
-      issuer: acc.issuer || '未命名',
-      account: acc.account || '',
+      issuer: typeof acc.issuer === 'string' ? acc.issuer : '未命名',
+      account: typeof acc.account === 'string' ? acc.account : '',
       secret: acc.secret,
       period: typeof acc.period === 'number' ? acc.period : 30,
       digits: typeof acc.digits === 'number' ? acc.digits : 6,

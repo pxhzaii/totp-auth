@@ -222,6 +222,16 @@ function parseURI() {
   form.value.period = isNaN(periodVal) ? 30 : periodVal
   form.value.keyType = 'time-based'
 
+  // query 中的 issuer 参数优先（覆盖 label 中解析的 issuer）
+  const queryIssuer = params.get('issuer')
+  if (queryIssuer) {
+    try {
+      form.value.issuer = decodeURIComponent(queryIssuer)
+    } catch {
+      form.value.issuer = queryIssuer
+    }
+  }
+
   parseField()
 }
 
