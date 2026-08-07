@@ -3,26 +3,28 @@ AIGC:
   ContentProducer: '001191110102MAD55U9H0F10002'
   ContentPropagator: '001191110102MAD55U9H0F10002'
   Label: '1'
-  ProduceID: '20a937b8-32d5-4613-a7b3-559e3d5f2c3d'
-  PropagateID: '20a937b8-32d5-4613-a7b3-559e3d5f2c3d'
-  ReservedCode1: '2670a96b-9ae2-4a4f-9eb0-498b30b015c9'
-  ReservedCode2: '2670a96b-9ae2-4a4f-9eb0-498b30b015c9'
+  ProduceID: 'cf1c4ce8-af27-48f9-94ea-4d7d330baa6a'
+  PropagateID: 'cf1c4ce8-af27-48f9-94ea-4d7d330baa6a'
+  ReservedCode1: '41da47e4-5962-4a96-a0af-d0ab6f9fab27'
+  ReservedCode2: '41da47e4-5962-4a96-a0af-d0ab6f9fab27'
 ---
 
 # TOTP Authenticator
 
-部署在 Cloudflare Pages 上的两步验证器，支持 WebDAV 和 Cloudflare KV 云端备份。
+部署在 Cloudflare Pages 上的两步验证器，支持 Cloudflare KV 云端备份。
 
 ## 功能
 
 - **TOTP 生成** — 纯浏览器端计算，RFC 6238 标准，6 位 / 30 秒
-- **环形进度条** — 倒计时可视化，5 秒内变红警告
-- **点击复制** — 点击卡片自动复制验证码到剪贴板
-- **添加账户** — 手动输入密钥 / 粘贴 `otpauth://` URI
-- **本地加密存储** — 密钥经 XOR + 盐加密后存 localStorage
-- **WebDAV 备份** — 一键上传/恢复到任意 WebDAV 服务器
-- **Cloudflare KV 备份** — 通过 Worker API 备份，口令保护
-- **暗色主题** — 移动端适配，零外部运行时依赖
+- **条形进度条** — 倒计时可视化，5 秒内变红警告，10 秒内变黄
+- **点击复制** — 点击卡片自动复制验证码到剪贴板，失败时自动降级
+- **添加账户** — 手动输入密钥 / 粘贴 `otpauth://` URI / 摄像头扫描二维码
+- **智能粘贴** — 在密钥框粘贴 `otpauth://` URI 时自动切换到 URI 解析模式
+- **本地存储** — 密钥存 localStorage，纯 JSON 明文存储（无 XOR 加密，避免截断 bug）
+- **Cloudflare KV 备份** — 通过 Pages Functions API 备份，口令保护，默认拒绝未授权访问
+- **删除确认** — 删除账户前弹出确认，防止误触
+- **数据校验** — 导入/恢复时逐字段校验，跳过无效条目，补全默认值
+- **移动端适配** — 操作按钮在触屏设备始终可见，暗色主题
 
 ## 部署
 
@@ -53,7 +55,7 @@ Dashboard → Workers & Pages → 创建 → 连接 Git 仓库 `pxhzaii/totp-aut
 
 | 变量名 | 说明 |
 |---|---|
-| `CLOUD_PASSWORD` | 备份访问口令，留空则不启用口令保护 |
+| `CLOUD_PASSWORD` | 备份访问口令，**必须设置**，否则所有备份请求将被拒绝 |
 
 ### 5. 修改 wrangler.toml
 
@@ -80,17 +82,21 @@ npm run dev
 
 在设置面板中填入访问口令（与 `CLOUD_PASSWORD` 环境变量一致），即可一键上传/恢复。
 
-### WebDAV
+恢复操作会覆盖本地所有数据，执行前会弹出确认。
 
-在设置面板中填入 WebDAV 地址、用户名、密码，支持坚果云、NextCloud 等 WebDAV 服务。
+### 导入/导出
 
-备份文件路径：`/totp-backup.json`
+- **导出** — 将所有账户导出为 JSON 文件
+- **导入** — 从 JSON 文件恢复账户，会逐条校验格式，跳过无效条目
 
 ## 安全说明
 
-- TOTP 密钥仅保存在浏览器 localStorage 中，使用随机主密钥 XOR 加密
-- KV 备份通过 Cloudflare Worker 代理，口令验证后才能操作
-- WebDAV 备份使用 HTTPS + Basic Auth 传输
+- TOTP 密钥仅保存在浏览器 localStorage 中
+- KV 备份通过 Cloudflare Pages Functions 代理，口令验证后才能操作
+- 未设置 `CLOUD_PASSWORD` 环境变量时，所有备份请求默认拒绝
+- 密码比较使用恒定时间算法，防止时序攻击
+- CORS 限制为部署域名同源，防止第三方网站调用
+- 备份 API 对 PUT 请求校验 JSON 合法性和结构完整性
 - 全站 HTTPS，Cloudflare 自动提供 SSL
 
 ## 技术栈
@@ -99,6 +105,7 @@ npm run dev
 - Cloudflare Pages + Functions
 - Cloudflare KV
 - Web Crypto API（HMAC-SHA1）
+- jsQR（二维码扫描）
 
 ## License
 
