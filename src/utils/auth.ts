@@ -32,13 +32,16 @@ export function markAccessAuthed(): void {
 }
 
 // 验证口令（调用后端）
-export async function verifyAccessPassword(password: string): Promise<boolean> {
+export async function verifyAccessPassword(password: string): Promise<{ valid: boolean; error?: string }> {
   const res = await fetch('/api/kv/auth', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ password })
   })
-  if (!res.ok) return false
+  if (res.status === 429) {
+    return { valid: false, error: '尝试次数过多，请 15 分钟后再试' }
+  }
+  if (!res.ok) return { valid: false, error: '验证失败，请检查网络连接' }
   const data = await res.json()
-  return data.valid === true
+  return { valid: data.valid === true }
 }
