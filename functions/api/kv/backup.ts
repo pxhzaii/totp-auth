@@ -17,6 +17,27 @@ function safeEqual(a: string, b: string): boolean {
   return result === 0
 }
 
+// --- 限流（基于 IP，10 次/15 分钟）---
+const RATE_LIMIT_MAX = 10
+const RATE_LIMIT_WINDOW = 15 * 60 * 1000
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now()
+  let entry = rateLimitMap.get(ip)
+  if (!entry || now > entry.resetAt) {
+    entry = { count: 0, resetAt: now + RATE_LIMIT_WINDOW }
+    rateLimitMap.set(ip, entry)
+  }
+  entry.count++
+  if (rateLimitMap.size > 10000) {
+    for (const [key, val] of rateLimitMap) {
+      if (now > val.resetAt) rateLimitMap.delete(key)
+    }
+  }
+  return entry.count > RATE_LIMIT_MAX
+}
+
 // 密码验证（默认拒绝）
 function checkPassword(request: Request, env: Env): boolean {
   const password = request.headers.get('X-Cloud-Password') || ''
@@ -83,6 +104,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return new Response(null, { status: 204, headers: corsHeaders })
   }
 
+  // 限流检查
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown'
+  if (isRateLimited(ip)) {
+    return new Response(JSON.stringify({ error: 'too_many_attempts' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    })
+  }
+
   // 验证密码
   if (!checkPassword(request, env)) {
     return errorResponse('Unauthorized', 401, corsHeaders)
@@ -106,6 +136,10 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.accounts)) {
           return errorResponse('备份数据缺少 accounts 数组', 400, corsHeaders)
         }
+        // 限制账户数量（KV value 最大 25MB，实际远达不到，但防止滥用）
+        if (parsed.accounts.length > 1000) {
+          return errorResponse('账户数量超过限制 (1000)', 400, corsHeaders)
+        }
         await env.TOTP_KV.put(KV_KEY, body)
         return jsonResponse({ success: true, message: '备份成功' }, 200, corsHeaders)
       } catch (e: any) {
@@ -121,6 +155,9 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           return errorResponse('No backup found', 404, corsHeaders)
         }
         const parsed = JSON.parse(data)
+        if (!parsed || typeof parsed !== 'object') {
+          return errorResponse('备份数据格式损坏', 500, corsHeaders)
+        }
         return jsonResponse(parsed, 200, corsHeaders)
       } catch (e: any) {
         return errorResponse(`恢复失败: ${e.message}`, 500, corsHeaders)
