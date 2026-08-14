@@ -110,12 +110,12 @@ async function submitAccess() {
   accessLoading.value = true
   accessError.value = ''
   try {
-    const valid = await verifyAccessPassword(accessPassword.value.trim())
-    if (valid) {
+    const result = await verifyAccessPassword(accessPassword.value.trim())
+    if (result.valid) {
       markAccessAuthed()
       accessAuthed.value = true
     } else {
-      accessError.value = '口令错误，请重试'
+      accessError.value = result.error || '口令错误，请重试'
       accessPassword.value = ''
     }
   } catch {
