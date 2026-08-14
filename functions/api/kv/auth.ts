@@ -37,31 +37,14 @@ function isRateLimited(ip: string): boolean {
   return entry.count > RATE_LIMIT_MAX
 }
 
-// CORS 头 — 与 backup.ts 一致，限制为同源
-function getCorsHeaders(request: Request): Record<string, string> {
-  const origin = request.headers.get('Origin') || ''
-  const baseHeaders: Record<string, string> = {
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Vary': 'Origin'
-  }
-  if (!origin) {
-    return { 'Access-Control-Allow-Origin': '*', ...baseHeaders }
-  }
-  const allowedOrigins = [
-    'https://totp.5as.cn',
-    'http://localhost:8788'
-  ]
-  const allowOrigin = allowedOrigins.includes(origin) ? origin : ''
-  return {
-    'Access-Control-Allow-Origin': allowOrigin,
-    ...baseHeaders
-  }
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type'
 }
 
 export const onRequest: PagesFunction<Env> = async (context) => {
   const { request, env } = context
-  const corsHeaders = getCorsHeaders(request)
 
   // CORS 预检
   if (request.method === 'OPTIONS') {
