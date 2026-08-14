@@ -1,14 +1,3 @@
----
-AIGC:
-  ContentProducer: '001191110102MAD55U9H0F10002'
-  ContentPropagator: '001191110102MAD55U9H0F10002'
-  Label: '1'
-  ProduceID: 'd42aa9ed-7325-4842-88d8-2bf3760f9be2'
-  PropagateID: 'd42aa9ed-7325-4842-88d8-2bf3760f9be2'
-  ReservedCode1: 'f4d706b4-cf2f-4889-b85c-556add6635a8'
-  ReservedCode2: 'f4d706b4-cf2f-4889-b85c-556add6635a8'
----
-
 # TOTP Authenticator
 
 部署在 Cloudflare Pages 上的两步验证器，支持 Cloudflare KV 云端备份。
@@ -121,5 +110,3 @@ npm run dev
 ## License
 
 MIT
-
-> AI生成
