@@ -218,8 +218,8 @@ function parseURI() {
   form.value.algorithm = params.get('algorithm') || 'SHA1'
   const digitsVal = parseInt(params.get('digits') || '6')
   const periodVal = parseInt(params.get('period') || '30')
-  form.value.digits = isNaN(digitsVal) ? 6 : digitsVal
-  form.value.period = isNaN(periodVal) ? 30 : periodVal
+  form.value.digits = (isNaN(digitsVal) || digitsVal < 6 || digitsVal > 8) ? 6 : digitsVal
+  form.value.period = (isNaN(periodVal) || periodVal < 15 || periodVal > 300) ? 30 : periodVal
   form.value.keyType = 'time-based'
 
   // query 中的 issuer 参数优先（覆盖 label 中解析的 issuer）
