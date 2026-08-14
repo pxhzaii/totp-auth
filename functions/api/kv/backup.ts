@@ -48,32 +48,11 @@ function checkPassword(request: Request, env: Env): boolean {
   return safeEqual(password, envPassword)
 }
 
-// CORS 头 — 限制为同源，不允许第三方网站访问
-function getCorsHeaders(request: Request) {
-  const origin = request.headers.get('Origin') || ''
-  const baseHeaders: Record<string, string> = {
-    'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Cloud-Password',
-    'Vary': 'Origin'  // 告诉 CDN 不要按 Origin 缓存，每个 Origin 单独缓存
-  }
-  // 只允许同源请求；如果 Origin 为空（同源请求/非浏览器），放行
-  if (!origin) {
-    return {
-      'Access-Control-Allow-Origin': '*',
-      ...baseHeaders
-    }
-  }
-  // 对于跨域请求，仅允许与部署域名同源的请求
-  // 生产环境中应替换为你的实际域名
-  const allowedOrigins = [
-    'https://totp.5as.cn',  // 部署域名
-    'http://localhost:8788'  // 本地开发
-  ]
-  const allowOrigin = allowedOrigins.includes(origin) ? origin : ''
-  return {
-    'Access-Control-Allow-Origin': allowOrigin,
-    ...baseHeaders
-  }
+// CORS 头 — 允许所有来源，方便其他人部署
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Cloud-Password'
 }
 
 function jsonResponse(data: any, status = 200, corsHeaders: Record<string, string>): Response {
@@ -97,7 +76,6 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   const { request, env } = context
   const url = new URL(request.url)
   const path = url.pathname
-  const corsHeaders = getCorsHeaders(request)
 
   // CORS 预检
   if (request.method === 'OPTIONS') {
