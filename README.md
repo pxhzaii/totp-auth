@@ -1,4 +1,4 @@
-# TOTP Authenticator
+ # TOTP Authenticator
 
 部署在 Cloudflare Pages 上的两步验证器，支持 Cloudflare KV 云端备份。
 
