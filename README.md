@@ -1,13 +1,3 @@
----
-AIGC:
-  ContentProducer: '001191110102MAD55U9H0F10002'
-  ContentPropagator: '001191110102MAD55U9H0F10002'
-  Label: '1'
-  ProduceID: 'c067c903-5282-4474-a2f0-2b8569ed6370'
-  PropagateID: 'c067c903-5282-4474-a2f0-2b8569ed6370'
-  ReservedCode1: '06239975-6f05-4f7c-92db-57fc0aa6d18e'
-  ReservedCode2: '06239975-6f05-4f7c-92db-57fc0aa6d18e'
----
 
 # TOTP Authenticator
 
@@ -118,5 +108,3 @@ npm run dev
 ## License
 
 MIT
-
-> AI生成
