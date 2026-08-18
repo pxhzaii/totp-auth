@@ -1,8 +1,10 @@
 // 访问口令验证端点
-// 与 CLOUD_PASSWORD（备份口令）分离，使用 ACCESS_PASSWORD 环境变量
+// 使用 AUTH_USERNAME + AUTH_PASSWORD 环境变量（账号+密码形式）
+// 备份 API 也复用同一套凭据
 
 interface Env {
-  ACCESS_PASSWORD: string
+  AUTH_USERNAME: string
+  AUTH_PASSWORD: string
 }
 
 // 安全字符串比较（防止时序攻击）
@@ -10,7 +12,7 @@ function safeEqual(a: string, b: string): boolean {
   const maxLen = Math.max(a.length, b.length)
   let result = a.length ^ b.length
   for (let i = 0; i < maxLen; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i)
+    result |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0)
   }
   return result === 0
 }
@@ -64,28 +66,30 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     })
   }
 
-  const envPassword = env.ACCESS_PASSWORD
+  const envUsername = env.AUTH_USERNAME
+  const envPassword = env.AUTH_PASSWORD
 
-  // 未设置访问口令，直接放行（不启用访问保护）
-  if (!envPassword) {
-    return new Response(JSON.stringify({ valid: true }), {
+  // 未设置账号密码环境变量，拒绝访问（与备份 API 行为一致）
+  if (!envUsername || !envPassword) {
+    return new Response(JSON.stringify({ valid: false, error: 'not_configured' }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     })
   }
 
   try {
-    const body = await request.json() as { password?: string }
+    const body = await request.json() as { username?: string; password?: string }
+    const username = body.username || ''
     const password = body.password || ''
 
-    if (!password) {
+    if (!username || !password) {
       return new Response(JSON.stringify({ valid: false }), {
         status: 200,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       })
     }
 
-    const valid = safeEqual(password, envPassword)
+    const valid = safeEqual(username, envUsername) && safeEqual(password, envPassword)
 
     return new Response(JSON.stringify({ valid }), {
       status: 200,

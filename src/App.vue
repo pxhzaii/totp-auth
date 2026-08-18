@@ -9,18 +9,27 @@
         </svg>
       </div>
       <h2 class="lock-title">TOTP 验证器</h2>
-      <p class="lock-desc">请输入访问口令以继续</p>
-      <div class="lock-form">
+      <p class="lock-desc">请输入账号和密码以继续</p>
+      <div class="lock-form-vertical">
         <input
           ref="lockInputRef"
+          v-model="accessUsername"
+          type="text"
+          class="lock-input"
+          placeholder="账号"
+          @keydown.enter="lockPasswordRef?.focus()"
+          :disabled="accessLoading"
+        />
+        <input
+          ref="lockPasswordRef"
           v-model="accessPassword"
           type="password"
           class="lock-input"
-          placeholder="访问口令"
+          placeholder="密码"
           @keydown.enter="submitAccess"
           :disabled="accessLoading"
         />
-        <button class="lock-btn" :disabled="!accessPassword.trim() || accessLoading" @click="submitAccess">
+        <button class="lock-btn" :disabled="!accessUsername.trim() || !accessPassword.trim() || accessLoading" @click="submitAccess">
           {{ accessLoading ? '验证中...' : '进入' }}
         </button>
       </div>
@@ -91,12 +100,14 @@ import { loadAccounts, deleteAccount, updateAccount } from './utils/db'
 import { isAccessAuthed, markAccessAuthed, verifyAccessPassword } from './utils/auth'
 import type { TOTPAccount } from './utils/totp'
 
-// --- 访问口令 ---
+// --- 访问凭据 ---
 const accessAuthed = ref(isAccessAuthed())
+const accessUsername = ref('')
 const accessPassword = ref('')
 const accessLoading = ref(false)
 const accessError = ref('')
 const lockInputRef = ref<HTMLInputElement | null>(null)
+const lockPasswordRef = ref<HTMLInputElement | null>(null)
 
 // 如果未认证，等 DOM 渲染后聚焦输入框
 if (!accessAuthed.value) {
@@ -106,16 +117,16 @@ if (!accessAuthed.value) {
 }
 
 async function submitAccess() {
-  if (!accessPassword.value.trim() || accessLoading.value) return
+  if (!accessUsername.value.trim() || !accessPassword.value.trim() || accessLoading.value) return
   accessLoading.value = true
   accessError.value = ''
   try {
-    const result = await verifyAccessPassword(accessPassword.value.trim())
+    const result = await verifyAccessPassword(accessUsername.value.trim(), accessPassword.value.trim())
     if (result.valid) {
-      markAccessAuthed()
+      markAccessAuthed(accessUsername.value.trim(), accessPassword.value.trim())
       accessAuthed.value = true
     } else {
-      accessError.value = result.error || '口令错误，请重试'
+      accessError.value = result.error || '账号或密码错误，请重试'
       accessPassword.value = ''
     }
   } catch {
@@ -211,9 +222,10 @@ function onRestored() {
   margin-bottom: 28px;
 }
 
-.lock-form {
+.lock-form-vertical {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .lock-input {
@@ -250,6 +262,7 @@ function onRestored() {
   border: none;
   transition: opacity 0.15s;
   white-space: nowrap;
+  margin-top: 4px;
 }
 .lock-btn:hover:not(:disabled) {
   opacity: 0.9;

@@ -43,15 +43,6 @@
         <!-- Cloudflare KV 备份 -->
         <section class="section">
           <h3 class="section-title">云端备份</h3>
-          <div class="input-group">
-            <label>访问口令</label>
-            <input
-              v-model="cfg.cloudflarePassword"
-              type="password"
-              placeholder="设置 > Cloudflare 环境变量 CLOUD_PASSWORD"
-              class="input"
-            />
-          </div>
           <div class="section-actions">
             <button class="action-row sync-row" :disabled="syncingBool" @click="backupKV">
               <div class="action-icon">
@@ -82,9 +73,9 @@
         <section class="section">
           <h3 class="section-title">关于</h3>
           <p class="about-text">
-            TOTP 验证器 v1.0<br/>
-            纯前端运行，密钥仅保存在本地存储中。<br/>
-            支持 Cloudflare KV 云端备份。
+          TOTP 验证器 v1.0<br/>
+          纯前端运行，密钥仅保存在本地存储中。<br/>
+          支持 Cloudflare KV 云端备份，使用登录账号密码验证。
           </p>
         </section>
       </div>
@@ -100,8 +91,6 @@ import { ref, computed } from 'vue'
 import { loadAccounts, saveAccounts } from '../utils/db'
 import { serializeBackup } from '../utils/totp'
 import {
-  loadBackupConfig,
-  saveBackupConfig,
   backupToKV,
   restoreFromKV
 } from '../utils/backup'
@@ -112,7 +101,6 @@ const emit = defineEmits<{
   restored: []
 }>()
 
-const cfg = ref(loadBackupConfig())
 const syncing = ref<string | false>(false)
 const syncingBool = computed(() => syncing.value !== false)
 const syncingUp = computed(() => syncing.value === 'up')
@@ -125,10 +113,6 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
   clearTimeout(toastTimer)
   toast.value = { message, type }
   toastTimer = window.setTimeout(() => { toast.value = null }, 3000)
-}
-
-function saveCfg() {
-  saveBackupConfig(cfg.value)
 }
 
 // 导出
@@ -197,10 +181,9 @@ function importData() {
 
 // KV 备份
 async function backupKV() {
-  saveCfg()
   syncing.value = 'up'
   try {
-    const msg = await backupToKV(cfg.value)
+    const msg = await backupToKV()
     showToast(msg)
   } catch (e: any) {
     showToast(e.message || 'KV 备份失败', 'error')
@@ -210,10 +193,9 @@ async function backupKV() {
 
 async function restoreKV() {
   if (!confirm('恢复将覆盖当前本地的所有账户数据，是否继续？')) return
-  saveCfg()
   syncing.value = 'down'
   try {
-    const { message } = await restoreFromKV(cfg.value)
+    const { message } = await restoreFromKV()
     showToast(message)
     emit('restored')
   } catch (e: any) {
@@ -362,33 +344,6 @@ async function restoreKV() {
 }
 .sync-row:hover:not(:disabled) .action-icon {
   color: var(--accent);
-}
-
-/* 输入 */
-.input-group {
-  margin-bottom: 10px;
-}
-
-.input-group label {
-  display: block;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  margin-bottom: 5px;
-}
-
-.input {
-  width: 100%;
-  padding: 9px 12px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-size: 13px;
-  transition: border-color 0.2s;
-}
-.input:focus {
-  border-color: var(--accent);
 }
 
 /* 关于 */

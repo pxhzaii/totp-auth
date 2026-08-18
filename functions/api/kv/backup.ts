@@ -1,9 +1,11 @@
 // Cloudflare Pages Functions 入口
 // 处理 /api/kv/backup 的请求
+// 复用 AUTH_USERNAME + AUTH_PASSWORD 凭据（与登录同一套）
 
 interface Env {
   TOTP_KV: KVNamespace
-  CLOUD_PASSWORD: string
+  AUTH_USERNAME: string
+  AUTH_PASSWORD: string
 }
 
 // 安全字符串比较（防止时序攻击）
@@ -12,7 +14,7 @@ function safeEqual(a: string, b: string): boolean {
   const maxLen = Math.max(a.length, b.length)
   let result = a.length ^ b.length // 长度不同时 result != 0
   for (let i = 0; i < maxLen; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i)
+    result |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0)
   }
   return result === 0
 }
@@ -38,21 +40,23 @@ function isRateLimited(ip: string): boolean {
   return entry.count > RATE_LIMIT_MAX
 }
 
-// 密码验证（默认拒绝）
-function checkPassword(request: Request, env: Env): boolean {
-  const password = request.headers.get('X-Cloud-Password') || ''
-  const envPassword = env.CLOUD_PASSWORD
-  // 未设置密码环境变量时拒绝所有请求
-  if (!envPassword) return false
-  if (!password) return false
-  return safeEqual(password, envPassword)
+// 凭据验证（默认拒绝）
+function checkCredentials(request: Request, env: Env): boolean {
+  const username = request.headers.get('X-Auth-Username') || ''
+  const password = request.headers.get('X-Auth-Password') || ''
+  const envUsername = env.AUTH_USERNAME
+  const envPassword = env.AUTH_PASSWORD
+  // 未设置环境变量时拒绝所有请求
+  if (!envUsername || !envPassword) return false
+  if (!username || !password) return false
+  return safeEqual(username, envUsername) && safeEqual(password, envPassword)
 }
 
 // CORS 头 — 允许所有来源，方便其他人部署
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Cloud-Password'
+  'Access-Control-Allow-Headers': 'Content-Type, X-Auth-Username, X-Auth-Password'
 }
 
 function jsonResponse(data: any, status = 200, corsHeaders: Record<string, string>): Response {
@@ -82,17 +86,16 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return new Response(null, { status: 204, headers: corsHeaders })
   }
 
-  // 限流检查
-  const ip = request.headers.get('CF-Connecting-IP') || 'unknown'
-  if (isRateLimited(ip)) {
-    return new Response(JSON.stringify({ error: 'too_many_attempts' }), {
-      status: 429,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders }
-    })
-  }
-
-  // 验证密码
-  if (!checkPassword(request, env)) {
+  // 验证凭据（在限流之前，避免已认证用户被误限）
+  if (!checkCredentials(request, env)) {
+    // 凭据错误时才计入限流
+    const ip = request.headers.get('CF-Connecting-IP') || 'unknown'
+    if (isRateLimited(ip)) {
+      return new Response(JSON.stringify({ error: 'too_many_attempts' }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      })
+    }
     return errorResponse('Unauthorized', 401, corsHeaders)
   }
 

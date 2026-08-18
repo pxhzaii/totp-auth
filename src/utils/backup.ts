@@ -1,28 +1,11 @@
 // 云端备份模块
 // 仅支持 Cloudflare KV 备份
+// 凭据从 sessionStorage 获取（与登录同一套账号密码）
 
 import type { TOTPAccount } from './totp'
 import { loadAccounts, saveAccounts } from './db'
 import { serializeBackup } from './totp'
-
-export interface BackupConfig {
-  cloudflarePassword: string
-}
-
-const BACKUP_CFG_KEY = 'totp_backup_config'
-
-// --- 备份配置 ---
-export function loadBackupConfig(): BackupConfig {
-  try {
-    const raw = localStorage.getItem(BACKUP_CFG_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch {}
-  return { cloudflarePassword: '' }
-}
-
-export function saveBackupConfig(cfg: BackupConfig): void {
-  localStorage.setItem(BACKUP_CFG_KEY, JSON.stringify(cfg))
-}
+import { getAuthedCredentials } from './auth'
 
 // --- 数据校验 ---
 function validateBackupData(data: any): TOTPAccount[] {
@@ -58,9 +41,16 @@ function validateBackupData(data: any): TOTPAccount[] {
   return validAccounts
 }
 
+// 获取凭据，未登录时抛出错误
+function requireCredentials(): { username: string; password: string } {
+  const creds = getAuthedCredentials()
+  if (!creds) throw new Error('请先登录后再进行备份操作')
+  return creds
+}
+
 // --- Cloudflare KV 备份 ---
-export async function backupToKV(cfg: BackupConfig): Promise<string> {
-  if (!cfg.cloudflarePassword) throw new Error('Cloudflare 访问口令未配置')
+export async function backupToKV(): Promise<string> {
+  const creds = requireCredentials()
 
   const accounts = loadAccounts()
   if (accounts.length === 0) throw new Error('没有可备份的账户')
@@ -71,7 +61,8 @@ export async function backupToKV(cfg: BackupConfig): Promise<string> {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
-      'X-Cloud-Password': cfg.cloudflarePassword
+      'X-Auth-Username': creds.username,
+      'X-Auth-Password': creds.password
     },
     body: data
   })
@@ -84,11 +75,14 @@ export async function backupToKV(cfg: BackupConfig): Promise<string> {
   return `KV 备份成功 (${accounts.length} 个账户)`
 }
 
-export async function restoreFromKV(cfg: BackupConfig): Promise<{ accounts: TOTPAccount[]; message: string }> {
-  if (!cfg.cloudflarePassword) throw new Error('Cloudflare 访问口令未配置')
+export async function restoreFromKV(): Promise<{ accounts: TOTPAccount[]; message: string }> {
+  const creds = requireCredentials()
 
   const res = await fetch('/api/kv/backup', {
-    headers: { 'X-Cloud-Password': cfg.cloudflarePassword }
+    headers: {
+      'X-Auth-Username': creds.username,
+      'X-Auth-Password': creds.password
+    }
   })
 
   if (!res.ok) {
